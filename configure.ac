@@ -5969,6 +5969,66 @@ AC_SUBST([BUILD_WITH_LIBATASMART_LDFLAGS])
 AC_SUBST([BUILD_WITH_LIBATASMART_LIBS])
 # }}}
 
+# --with-libslurm {{{
+with_libslurm_cflags=""
+with_libslurm_ldflags=""
+AC_ARG_WITH(libslurm, [AS_HELP_STRING([--with-libslurm@<:@=PREFIX@:>@], [Path to libslurm.])],
+[
+	if test "x$withval" = "xno"
+	then
+		with_libslurm="no"
+	else
+		with_libslurm="yes"
+		if test "x$withval" != "xyes"
+		then
+			with_libslurm_cflags="-I$withval/include"
+			with_libslurm_ldflags="-L$withval/lib"
+		fi
+	fi
+],[with_libslurm="yes"])
+
+# libslurm headers
+if test "x$with_libslurm" = "xyes"
+then
+	SAVE_CPPFLAGS="$CPPFLAGS"
+	CPPFLAGS="$CPPFLAGS $with_libslurm_cflags"
+
+	AC_CHECK_HEADERS(slurm/slurm.h,
+                         [],
+                         [with_libslurm="no (slurm/slurm.h not found)"])
+
+	CPPFLAGS="$SAVE_CPPFLAGS"
+fi
+
+# libslurm library
+if test "x$with_libslurm" = "xyes"
+then
+	SAVE_CPPFLAGS="$CPPFLAGS"
+	SAVE_LDFLAGS="$LDFLAGS"
+	CPPFLAGS="$CPPFLAGS $with_libslurm_cflags"
+	LDFLAGS="$LDFLAGS $with_libslurm_ldflags"
+
+	AC_CHECK_LIB(slurm, slurm_load_jobs,
+	[
+		AC_DEFINE(HAVE_LIBSLURM, 1, [Define to 1 if you have the slurm library (-lslurm).])
+	],
+	[with_libslurm="no (libslurm not found)"])
+
+	CPPFLAGS="$SAVE_CPPFLAGS"
+	LDFLAGS="$SAVE_LDFLAGS"
+fi
+if test "x$with_libslurm" = "xyes"
+then
+	BUILD_WITH_LIBSLURM_CFLAGS="$with_libslurm_cflags"
+	BUILD_WITH_LIBSLURM_LDFLAGS="$with_libslurm_ldflags"
+	BUILD_WITH_LIBSLURM_LIBS="-lslurm"
+	AC_SUBST(BUILD_WITH_LIBSLURM_CFLAGS)
+	AC_SUBST(BUILD_WITH_LIBSLURM_LDFLAGS)
+	AC_SUBST(BUILD_WITH_LIBSLURM_LIBS)
+fi
+AM_CONDITIONAL(BUILD_WITH_LIBSLURM, test "x$with_libslurm" = "xyes")
+# }}}
+
 PKG_CHECK_MODULES([LIBNOTIFY], [libnotify],
   [with_libnotify="yes"],
   [with_libnotify="no (pkg-config doesn't know libnotify)"]
@@ -6601,6 +6661,8 @@ AC_PLUGIN([rrdtool],             [$with_librrd],            [RRDTool output plug
 AC_PLUGIN([sensors],             [$with_libsensors],        [lm_sensors statistics])
 AC_PLUGIN([serial],              [$plugin_serial],          [serial port traffic])
 AC_PLUGIN([sigrok],              [$with_libsigrok],         [sigrok acquisition sources])
+AC_PLUGIN([slurmctld],   [$with_libslurm],     [Slurmctld jobs statistics])
+AC_PLUGIN([slurmd],      [yes],                [Slurmd jobs statistics])
 AC_PLUGIN([smart],               [$plugin_smart],           [SMART statistics])
 AC_PLUGIN([snmp],                [$with_libnetsnmp],        [SNMP querying plugin])
 AC_PLUGIN([snmp_agent],          [$with_libnetsnmpagent],   [SNMP agent plugin])
@@ -6890,6 +6952,7 @@ AC_MSG_RESULT([    librouteros . . . . . $with_librouteros])
 AC_MSG_RESULT([    librrd  . . . . . . . $with_librrd])
 AC_MSG_RESULT([    libsensors  . . . . . $with_libsensors])
 AC_MSG_RESULT([    libsigrok   . . . . . $with_libsigrok])
+AC_MSG_RESULT([    libslurm    . . . . . $with_libslurm])
 AC_MSG_RESULT([    libstatgrab . . . . . $with_libstatgrab])
 AC_MSG_RESULT([    libtokyotyrant  . . . $with_libtokyotyrant])
 AC_MSG_RESULT([    libudev . . . . . . . $with_libudev])
@@ -7019,6 +7082,8 @@ AC_MSG_RESULT([    rrdtool . . . . . . . $enable_rrdtool])
 AC_MSG_RESULT([    sensors . . . . . . . $enable_sensors])
 AC_MSG_RESULT([    serial  . . . . . . . $enable_serial])
 AC_MSG_RESULT([    sigrok  . . . . . . . $enable_sigrok])
+AC_MSG_RESULT([    slurmctld   . . . . . $enable_slurmctld])
+AC_MSG_RESULT([    slurmd  . . . . . . . $enable_slurmd])
 AC_MSG_RESULT([    smart . . . . . . . . $enable_smart])
 AC_MSG_RESULT([    snmp  . . . . . . . . $enable_snmp])
 AC_MSG_RESULT([    snmp_agent  . . . . . $enable_snmp_agent])
