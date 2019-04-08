@@ -20,8 +20,8 @@
  **/
 
 #include "collectd.h"
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 #include "configfile.h"
 
 #include <slurm/slurm.h>
@@ -39,7 +39,7 @@ static void slurmctld_submit_gauge (long unsigned int job_number,
 
   sstrncpy (vl.host, hostname_g, sizeof (vl.host));
   sstrncpy (vl.plugin, "slurmctld", sizeof (vl.plugin));
-  ssnprintf(vl.plugin_instance, sizeof(vl.plugin_instance), "job_%lu", job_number);
+  ssnprintf_alloc(vl.plugin_instance, sizeof(vl.plugin_instance), "job_%lu", job_number);
   sstrncpy (vl.type, "count", sizeof(vl.type));
   sstrncpy (vl.type_instance, type_instance, sizeof(vl.type_instance));
 

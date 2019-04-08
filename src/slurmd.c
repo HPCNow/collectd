@@ -20,8 +20,8 @@
  **/
 
 #include "collectd.h"
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 #include "configfile.h"
 
 #define MAX_JOBS 1024
@@ -200,7 +200,7 @@ static void slurmd_submit_value (long unsigned int job_number, char *type, char 
 
   sstrncpy (vl.host, hostname_g, sizeof (vl.host));
   sstrncpy (vl.plugin, "slurmd", sizeof (vl.plugin));
-  ssnprintf(vl.plugin_instance, sizeof(vl.plugin_instance), "job_%lu", job_number);
+  ssnprintf_alloc(vl.plugin_instance, sizeof(vl.plugin_instance), "job_%lu", job_number);
   sstrncpy (vl.type, type, sizeof(vl.type));
   sstrncpy (vl.type_instance, type_instance, sizeof(vl.type_instance));
 
@@ -288,7 +288,7 @@ static void slurmd_add_cpu_time (cpu_time_t *total, cpu_time_t *to_add)
  */
 void slurmd_snprintf_cpu_times (char *str, int strlen, cpu_time_t *times)
 {
-  ssnprintf(str, strlen,
+  ssnprintf_alloc(str, strlen,
             "user: %lu nice: %lu system: %lu idle: %lu iowait: %lu irq: %lu "
             "softirq: %lu steal: %lu guest: %lu guest_nice: %lu",
             times->user,
@@ -393,7 +393,7 @@ static unsigned int slurmd_get_pid_pss (const pid_t pid)
 
   /* build smaps fpath */
   bzero(smaps_fpath, sizeof(smaps_fpath));
-  ssnprintf(smaps_fpath, sizeof(smaps_fpath), "/proc/%d/smaps", pid);
+  ssnprintf_alloc(smaps_fpath, sizeof(smaps_fpath), "/proc/%d/smaps", pid);
 
   smaps_fh = fopen(smaps_fpath, "r");
 
@@ -446,7 +446,7 @@ static int slurmd_get_job_cpus_time (int job_cpus[], int job_nb_cpus, cpu_time_t
     return (-1);
   }
 
-  ssnprintf(searched_cpu_name, MAX_CPU_NAME_SIZE, "cpu%d", job_cpus[cpu_idx]);
+  ssnprintf_alloc(searched_cpu_name, MAX_CPU_NAME_SIZE, "cpu%d", job_cpus[cpu_idx]);
   while (!all_cpus_found &&
          (fscanf(fstat, "%s %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n",
                  cur_cpu_name, &xcpu_time->user, &xcpu_time->nice,
@@ -466,7 +466,7 @@ static int slurmd_get_job_cpus_time (int job_cpus[], int job_nb_cpus, cpu_time_t
       cpu_idx++;
       if (cpu_idx >= job_nb_cpus)
         all_cpus_found = 1;
-      ssnprintf(searched_cpu_name, MAX_CPU_NAME_SIZE, "cpu%d", job_cpus[cpu_idx]);
+      ssnprintf_alloc(searched_cpu_name, MAX_CPU_NAME_SIZE, "cpu%d", job_cpus[cpu_idx]);
     }
   }
   fclose(fstat);
@@ -536,7 +536,7 @@ static int slurmd_track_threads (pid_t pids[], int nb_pids, pid_t threads[])
   for(i=0; i<nb_pids; i++) {
     pid = pids[i];
     if(!slurmd_pid_is_thread (pid, threads, nb_threads)) {
-      ssnprintf(task_dir_fpath, PATH_MAX, "/proc/%d/task", pid);
+      ssnprintf_alloc(task_dir_fpath, PATH_MAX, "/proc/%d/task", pid);
 
       dir = opendir(task_dir_fpath);
 
@@ -643,7 +643,7 @@ static int slurmd_get_jobstep_pss (const char *step_cpuset_mnt_pt)
 
     /* check if ent name starts with 'job_' */
     if (strncmp(dir_ent->d_name, "tasks", 6) == 0) {
-      ssnprintf(tasks_fpath, sizeof(tasks_fpath), "%s/%s",
+      ssnprintf_alloc(tasks_fpath, sizeof(tasks_fpath), "%s/%s",
                 step_cpuset_mnt_pt, dir_ent->d_name);
       xpss = slurmd_get_tasks_pss(tasks_fpath);
       if (xpss < 0) {
@@ -680,7 +680,7 @@ static int slurmd_parse_cpuset_cpus_list (const char* cpuset_fpath, int cpus[])
   bzero(cpus_fpath, sizeof(cpus_fpath));
   bzero(cpus_str, sizeof(cpus_str));
 
-  ssnprintf(cpus_fpath, sizeof(cpus_fpath), "%s/%s", cpuset_fpath, "cpuset.cpus");
+  ssnprintf_alloc(cpus_fpath, sizeof(cpus_fpath), "%s/%s", cpuset_fpath, "cpuset.cpus");
   cpus_fh = fopen(cpus_fpath, "r");
 
   if (cpus_fh == NULL) {
@@ -808,7 +808,7 @@ static int slurmd_browse_job_cpuset (char* job_cpuset_mnt_pt, unsigned long int 
       break;
 
     if (strncmp(dir_ent->d_name, "step_", 5) == 0) {
-        ssnprintf(step_cpuset_mnt_pt, sizeof(step_cpuset_mnt_pt), "%s/%s",
+        ssnprintf_alloc(step_cpuset_mnt_pt, sizeof(step_cpuset_mnt_pt), "%s/%s",
                   job_cpuset_mnt_pt, dir_ent->d_name);
         xpss = slurmd_get_jobstep_pss(step_cpuset_mnt_pt);
         if(xpss < 0)
@@ -871,7 +871,7 @@ static int slurmd_browse_uid_cpuset (const char *uid_cpuset_mnt_pt)
       strncpy(job_number_str, job_number_addr, strlen(job_number_addr));
       job_number = slurmd_str_to_long(job_number_str);
       if (job_number != -1) {
-        ssnprintf(job_cpuset_mnt_pt, sizeof(job_cpuset_mnt_pt), "%s/%s",
+        ssnprintf_alloc(job_cpuset_mnt_pt, sizeof(job_cpuset_mnt_pt), "%s/%s",
                   uid_cpuset_mnt_pt, dir_ent->d_name);
         if(!slurmd_browse_job_cpuset(job_cpuset_mnt_pt, job_number))
           ret = 0;
@@ -901,7 +901,7 @@ static int slurmd_update_jobs_usage (void)
 
   /* Try to open cpuset/slurm in cgroups */
   bzero(slurm_cpuset_mnt_pt, PATH_MAX);
-  ssnprintf(slurm_cpuset_mnt_pt, sizeof(slurm_cpuset_mnt_pt), "%s/%s",
+  ssnprintf_alloc(slurm_cpuset_mnt_pt, sizeof(slurm_cpuset_mnt_pt), "%s/%s",
             cgroup_mnt_pt, "cpuset/slurm");
 
   dir = opendir(slurm_cpuset_mnt_pt);
@@ -920,7 +920,7 @@ static int slurmd_update_jobs_usage (void)
     }
 
     bzero(slurm_cpuset_mnt_pt, PATH_MAX);
-    ssnprintf(slurm_cpuset_mnt_pt, sizeof(slurm_cpuset_mnt_pt), "%s/%s_%s",
+    ssnprintf_alloc(slurm_cpuset_mnt_pt, sizeof(slurm_cpuset_mnt_pt), "%s/%s_%s",
               cgroup_mnt_pt, "cpuset/slurm", node_name);
     dir = opendir(slurm_cpuset_mnt_pt);
   }
@@ -945,7 +945,7 @@ static int slurmd_update_jobs_usage (void)
 
     /* check if dir_ent name starts with 'uid_' */
     if (strncmp(dir_ent->d_name, "uid_", 4) == 0) {
-      ssnprintf(uid_cpuset_mnt_pt, sizeof(uid_cpuset_mnt_pt), "%s/%s",
+      ssnprintf_alloc(uid_cpuset_mnt_pt, sizeof(uid_cpuset_mnt_pt), "%s/%s",
                 slurm_cpuset_mnt_pt, dir_ent->d_name);
       if(slurmd_browse_uid_cpuset(uid_cpuset_mnt_pt))
         ret = -1;

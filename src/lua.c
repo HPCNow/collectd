@@ -28,26 +28,17 @@
  *   Ruben Kerkhof <ruben at rubenkerkhof.com>
  **/
 
-/* <lua5.1/luaconf.h> defines a macro using "sprintf". Although not used here,
- * GCC will complain about the macro definition. */
-#define DONT_POISON_SPRINTF_YET
-
-#include "common.h"
-#include "plugin.h"
 #include "collectd.h"
+#include "plugin.h"
+#include "utils/common/common.h"
+#include "utils_lua.h"
 
 /* Include the Lua API header files. */
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
-#include "utils_lua.h"
 
 #include <pthread.h>
-
-#if COLLECT_DEBUG && __GNUC__
-#undef sprintf
-#pragma GCC poison sprintf
-#endif
 
 typedef struct lua_script_s {
   char *script_path;
@@ -57,7 +48,7 @@ typedef struct lua_script_s {
 
 typedef struct {
   lua_State *lua_state;
-  const char *lua_function_name;
+  char *lua_function_name;
   pthread_mutex_t lock;
   int callback_id;
 } clua_callback_data_t;
@@ -272,6 +263,12 @@ static int lua_cb_dispatch_values(lua_State *L) /* {{{ */
   return 0;
 } /* }}} lua_cb_dispatch_values */
 
+static void lua_cb_free(void *data) {
+  clua_callback_data_t *cb = data;
+  free(cb->lua_function_name);
+  free(cb);
+}
+
 static int lua_cb_register_read(lua_State *L) /* {{{ */
 {
   int nargs = lua_gettop(L);
@@ -303,13 +300,14 @@ static int lua_cb_register_read(lua_State *L) /* {{{ */
   cb->lua_function_name = strdup(function_name);
   pthread_mutex_init(&cb->lock, NULL);
 
-  int status = plugin_register_complex_read(/* group = */ "lua",
-                                            /* name      = */ function_name,
-                                            /* callback  = */ clua_read,
-                                            /* interval  = */ 0,
-                                            &(user_data_t){
-                                                .data = cb,
-                                            });
+  int status =
+      plugin_register_complex_read(/* group = */ "lua",
+                                   /* name      = */ function_name,
+                                   /* callback  = */ clua_read,
+                                   /* interval  = */ 0,
+                                   &(user_data_t){
+                                       .data = cb, .free_func = lua_cb_free,
+                                   });
 
   if (status != 0)
     return luaL_error(L, "%s", "plugin_register_complex_read failed");
@@ -350,7 +348,7 @@ static int lua_cb_register_write(lua_State *L) /* {{{ */
   int status = plugin_register_write(/* name = */ function_name,
                                      /* callback  = */ clua_write,
                                      &(user_data_t){
-                                         .data = cb,
+                                         .data = cb, .free_func = lua_cb_free,
                                      });
 
   if (status != 0)
